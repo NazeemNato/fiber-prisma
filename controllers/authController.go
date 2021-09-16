@@ -3,11 +3,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/nazeemnato/employee-go/db"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 func Register(c *fiber.Ctx) error {
@@ -25,7 +26,6 @@ func Register(c *fiber.Ctx) error {
 	}()
 
 	ctx := context.Background()
-
 
 	var data map[string]string
 
@@ -101,10 +101,10 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	cookie := fiber.Cookie{
-		Name: "token",
-		Value: token,
+		Name:     "token",
+		Value:    token,
 		HTTPOnly: true,
-		Expires: time.Now().Add(time.Hour * 24),
+		Expires:  time.Now().Add(time.Hour * 24),
 	}
 
 	c.Cookie(&cookie)
@@ -183,10 +183,10 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	cookie := fiber.Cookie{
-		Name: "token",
-		Value: token,
+		Name:     "token",
+		Value:    token,
 		HTTPOnly: true,
-		Expires: time.Now().Add(time.Hour * 24),
+		Expires:  time.Now().Add(time.Hour * 24),
 	}
 
 	c.Cookie(&cookie)
@@ -194,5 +194,45 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": true,
 		"token":  token,
+	})
+}
+
+func User(c *fiber.Ctx) error {
+	client := db.NewClient()
+
+	id := c.GetRespHeader("x-userId")
+
+	fmt.Println("id from request", id)
+
+	if err := client.Prisma.Connect(); err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := client.Prisma.Disconnect(); err != nil {
+			panic(err)
+		}
+	}()
+
+	ctx := context.Background()
+
+	
+	user, _ := client.User.FindUnique(
+		db.User.ID.Equals(id),
+	).Exec(ctx)
+
+	return c.JSON(user)
+}
+
+func Logout(c *fiber.Ctx) error {
+	cookie := fiber.Cookie{
+		Name:     "token",
+		Value:    "",
+		HTTPOnly: true,
+		Expires:  time.Now().Add(-time.Hour),
+	}
+	c.Cookie(&cookie)
+	return c.JSON(fiber.Map{
+		"message": "Bye",
 	})
 }
